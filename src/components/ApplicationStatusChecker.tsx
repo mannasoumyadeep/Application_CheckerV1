@@ -50,15 +50,20 @@ export const ApplicationStatusChecker: React.FC = () => {
   // Function to fetch captcha from the patent office website
   const fetchCaptcha = async (): Promise<{ captcha: string; cookie: string }> => {
     try {
-      const response = await fetch('https:// patentscope.ipindia.gov.in/IndianPatentSearch/viewCaptcha.do', {
+      // Using a CORS proxy to handle cross-origin requests
+      const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+      const targetUrl = 'https://patentscope.ipindia.gov.in/IndianPatentSearch/viewCaptcha.do';
+      
+      const response = await fetch(proxyUrl + targetUrl, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
+          'Origin': window.location.origin,
         }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch captcha');
+        throw new Error(`Failed to fetch captcha: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -75,20 +80,30 @@ export const ApplicationStatusChecker: React.FC = () => {
   // Function to fetch application data from the patent office website
   const fetchApplicationData = async (applicationNumber: string, captcha: string, cookie: string): Promise<ApplicationData> => {
     try {
+      // Using a CORS proxy to handle cross-origin requests
+      const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+      const targetUrl = 'https://patentscope.ipindia.gov.in/IndianPatentSearch/getApplicationData';
+      
       const formData = new FormData();
       formData.append('applicationNumber', applicationNumber);
       formData.append('captcha', captcha);
 
-      const response = await fetch('https:// patentscope.ipindia.gov.in/IndianPatentSearch/getApplicationData', {
+      const response = await fetch(proxyUrl + targetUrl, {
         method: 'POST',
         headers: {
           'Cookie': cookie,
+          'Origin': window.location.origin,
         },
         body: formData
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Received non-JSON response from server');
       }
 
       const data = await response.json();

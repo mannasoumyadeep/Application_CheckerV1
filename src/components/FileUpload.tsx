@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback } from "react";
-import { Upload, FileSpreadsheet, Info, AlertCircle } from "lucide-react";
+import { Upload, FileSpreadsheet, Info, AlertCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -72,6 +72,27 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isProcessi
     reader.readAsArrayBuffer(file);
   }, [onFileUpload]);
 
+  const downloadSampleFile = () => {
+    // Create sample data
+    const sampleData = [
+      ["Application Number"],
+      ["20231234567"],
+      ["20231234568"],
+      ["20231234569"],
+      ["20231234570"]
+    ];
+    
+    // Create worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet(sampleData);
+    
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sample Applications");
+    
+    // Export to file
+    XLSX.writeFile(workbook, "sample_application_numbers.xlsx");
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -119,6 +140,17 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isProcessi
               <p className="mt-2 text-sm text-gray-500">
                 Excel files only (.xlsx, .xls)
               </p>
+            </div>
+            
+            <div className="mt-4">
+              <Button 
+                variant="link" 
+                onClick={downloadSampleFile}
+                className="text-sm flex items-center gap-1 mx-auto"
+              >
+                <Download className="h-4 w-4" />
+                Download Sample File
+              </Button>
             </div>
           </div>
           

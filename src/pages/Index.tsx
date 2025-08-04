@@ -2,7 +2,8 @@
 
 import { ApplicationStatusChecker } from "@/components/ApplicationStatusChecker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Search, Download } from "lucide-react";
+import { FileText, Search, Download, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function Home() {
   return (
@@ -16,6 +17,14 @@ export default function Home() {
             Check the status of Indian patent applications quickly and easily
           </p>
         </div>
+
+        <Alert className="mb-8">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Important Notice</AlertTitle>
+          <AlertDescription>
+            This tool requires temporary access to a CORS proxy service. If you encounter issues, you may need to request temporary access at <a href="https://cors-anywhere.herokuapp.com/corsdemo" target="_blank" rel="noopener noreferrer" className="underline">cors-anywhere.herokuapp.com</a>
+          </AlertDescription>
+        </Alert>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <Card>
