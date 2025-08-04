@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { AlertTriangle } from "lucide-react";
 
 interface ApplicationData {
   "Application Number": string;
@@ -54,8 +55,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
   };
 
   return (
-    <ScrollArea className="border rounded-md">
-      <Table className="min-w-[1200px]">
+    <ScrollArea className="border rounded-md w-full">
+      <Table className="min-w-[1000px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[150px]">Application Number</TableHead>
@@ -63,9 +64,8 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
             <TableHead>Application Type</TableHead>
             <TableHead>Date of Filing</TableHead>
             <TableHead>Title of Invention</TableHead>
-            <TableHead>Field of Invention</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead>Errors</TableHead>
+            <TableHead className="text-center">Errors</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -90,9 +90,6 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
                 {result["Title of Invention"] || "-"}
               </TableCell>
               <TableCell>
-                {result["Field of Invention"] || "-"}
-              </TableCell>
-              <TableCell>
                 {result["Application Status"] ? (
                   <Badge variant={getStatusVariant(result["Application Status"])}>
                     {result["Application Status"]}
@@ -101,11 +98,14 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
                   "-"
                 )}
               </TableCell>
-              <TableCell>
+              <TableCell className="text-center">
                 {result.error ? (
-                  <Badge variant="destructive">Error</Badge>
+                  <div className="flex items-center justify-center">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    <span className="sr-only">Error occurred</span>
+                  </div>
                 ) : (
-                  "-"
+                  <span className="text-muted-foreground">-</span>
                 )}
               </TableCell>
             </TableRow>

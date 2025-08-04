@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Download, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Download, AlertCircle, CheckCircle, Loader2, Play, Square } from "lucide-react";
 import { saveAs } from "file-saver";
+import * as XLSX from 'xlsx';
 
 interface ApplicationData {
   "Application Number": string;
@@ -46,42 +47,40 @@ export const ApplicationStatusChecker: React.FC = () => {
   };
 
   const fetchCaptcha = async (): Promise<string> => {
-    try {
-      // In a real implementation, this would fetch the actual captcha
-      // For demo purposes, we'll return a mock captcha
-      return "ABC123";
-    } catch (err) {
-      console.error("Error fetching captcha:", err);
-      throw new Error("Failed to fetch captcha");
-    }
+    // Simulate captcha fetching - in a real implementation, this would connect to the actual service
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return "ABC123";
   };
 
   const fetchApplicationData = async (applicationNumber: string): Promise<ApplicationData> => {
     // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+    await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200));
     
-    // Simulate random errors for demonstration
+    // Simulate occasional errors (10% failure rate)
     if (Math.random() < 0.1) {
-      throw new Error("Failed to fetch data");
+      throw new Error("Failed to fetch data - please try again later");
     }
     
     // Return mock data for demonstration
+    const statuses = ["Published", "Exam Report Issued", "Granted", "Pending"];
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    
     return {
       "Application Number": applicationNumber,
       "Applicant Name": `Applicant ${applicationNumber}`,
       "Application Type": Math.random() > 0.5 ? "Provisional" : "Complete",
       "Date of Filing": `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/202${Math.floor(Math.random() * 4)}`,
       "Title of Invention": `Invention Title for ${applicationNumber}`,
-      "Field of Invention": "Engineering",
+      "Field of Invention": ["Engineering", "Biotechnology", "Software", "Mechanical", "Chemical"][Math.floor(Math.random() * 5)],
       "Email (As Per Record)": `applicant${applicationNumber}@example.com`,
-      "Additional Email (As Per Record)": "",
+      "Additional Email (As Per Record)": Math.random() > 0.7 ? `additional${applicationNumber}@example.com` : "",
       "Email (Updated Online)": "",
       "PCT International Application Number": Math.random() > 0.7 ? `PCT/IN/${applicationNumber}/2023` : "",
       "PCT International Filing Date": Math.random() > 0.7 ? `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/2023` : "",
       "Priority Date": Math.random() > 0.5 ? `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/2022` : "",
       "Request for Examination Date": Math.random() > 0.3 ? `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/2023` : "",
       "Publication Date (U/S 11A)": Math.random() > 0.4 ? `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/2023` : "",
-      "Application Status": ["Published", "Exam Report Issued", "Granted", "Pending"][Math.floor(Math.random() * 4)]
+      "Application Status": status
     };
   };
 
@@ -131,7 +130,7 @@ export const ApplicationStatusChecker: React.FC = () => {
       }
     } catch (err) {
       if (!signal.aborted) {
-        setError("An error occurred while processing applications");
+        setError("An error occurred while processing applications. Please try again.");
         console.error(err);
       }
     } finally {
@@ -150,10 +149,10 @@ export const ApplicationStatusChecker: React.FC = () => {
   };
 
   const exportToExcel = (data: ApplicationData[], filename: string) => {
-    const worksheet = window.XLSX.utils.json_to_sheet(data);
-    const workbook = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(workbook, worksheet, "Application Statuses");
-    const excelBuffer = window.XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Application Statuses");
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
     const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
     saveAs(blob, filename);
   };
@@ -169,29 +168,8 @@ export const ApplicationStatusChecker: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    // Load XLSX library
-    const script = document.createElement("script");
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
-    script.onload = () => {
-      console.log("XLSX library loaded");
-    };
-    document.head.appendChild(script);
-    
-    return () => {
-      document.head.removeChild(script);
-    };
-  }, []);
-
   return (
-    <div className="container mx-auto py-8 space-y-8">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Patent Application Status Checker</h1>
-        <p className="text-muted-foreground mt-2">
-          Check the status of Indian patent applications
-        </p>
-      </div>
-      
+    <div className="space-y-8">
       <FileUpload onFileUpload={handleFileUpload} isProcessing={isProcessing} />
       
       {applicationNumbers.length > 0 && (
@@ -203,23 +181,23 @@ export const ApplicationStatusChecker: React.FC = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mb-4">
               {applicationNumbers.slice(0, 10).map((num, index) => (
                 <span 
                   key={index} 
-                  className="bg-secondary text-secondary-foreground px-2 py-1 rounded text-sm"
+                  className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full text-sm"
                 >
                   {num}
                 </span>
               ))}
               {applicationNumbers.length > 10 && (
-                <span className="bg-secondary text-secondary-foreground px-2 py-1 rounded text-sm">
+                <span className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full text-sm">
                   +{applicationNumbers.length - 10} more
                 </span>
               )}
             </div>
             
-            <div className="mt-4 flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Button 
                 onClick={processApplications} 
                 disabled={isProcessing}
@@ -231,7 +209,10 @@ export const ApplicationStatusChecker: React.FC = () => {
                     Processing...
                   </>
                 ) : (
-                  "Start Processing"
+                  <>
+                    <Play className="h-4 w-4" />
+                    Start Processing
+                  </>
                 )}
               </Button>
               
@@ -239,7 +220,9 @@ export const ApplicationStatusChecker: React.FC = () => {
                 <Button 
                   variant="destructive" 
                   onClick={stopProcessing}
+                  className="flex items-center gap-2"
                 >
+                  <Square className="h-4 w-4" />
                   Stop Processing
                 </Button>
               )}
@@ -259,7 +242,7 @@ export const ApplicationStatusChecker: React.FC = () => {
           <CardContent>
             <Progress value={progress} className="w-full" />
             <p className="text-center mt-2 text-sm text-muted-foreground">
-              {Math.round(progress)}% complete
+              {Math.round(progress)}% complete ({Math.round((progress/100) * applicationNumbers.length)} of {applicationNumbers.length} applications)
             </p>
           </CardContent>
         </Card>
@@ -278,7 +261,7 @@ export const ApplicationStatusChecker: React.FC = () => {
       {completed && (
         <Alert>
           <CheckCircle className="h-4 w-4" />
-          <AlertTitle>Processing Complete</AlertTitle>
+          <AlertTitle>Processing Complete!</AlertTitle>
           <AlertDescription>
             Successfully processed {results.length} applications. 
             {results.filter(r => r.error).length > 0 && (
@@ -290,9 +273,9 @@ export const ApplicationStatusChecker: React.FC = () => {
       
       {results.length > 0 && (
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h2 className="text-2xl font-bold">Results</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button 
                 onClick={exportResults}
                 className="flex items-center gap-2"
