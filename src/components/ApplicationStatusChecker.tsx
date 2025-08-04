@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { FileUpload } from "@/components/FileUpload";
 import { ResultsTable } from "@/components/ResultsTable";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ interface ApplicationData {
   "Publication Date (U/S 11A)"?: string;
   "Application Status"?: string;
   error?: boolean;
+  errorMessage?: string;
 }
 
 export const ApplicationStatusChecker: React.FC = () => {
@@ -46,42 +47,77 @@ export const ApplicationStatusChecker: React.FC = () => {
     setError(null);
   };
 
-  const fetchCaptcha = async (): Promise<string> => {
-    // Simulate captcha fetching - in a real implementation, this would connect to the actual service
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return "ABC123";
+  // Function to fetch captcha from the patent office website
+  const fetchCaptcha = async (): Promise<{ captcha: string; cookie: string }> => {
+    try {
+      const response = await fetch('https:// patentscope.ipindia.gov.in/IndianPatentSearch/viewCaptcha.do', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch captcha');
+      }
+
+      const data = await response.json();
+      return {
+        captcha: data.captcha,
+        cookie: response.headers.get('set-cookie') || ''
+      };
+    } catch (err) {
+      console.error('Captcha fetch error:', err);
+      throw new Error('Unable to fetch captcha. Please try again.');
+    }
   };
 
-  const fetchApplicationData = async (applicationNumber: string): Promise<ApplicationData> => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200));
-    
-    // Simulate occasional errors (10% failure rate)
-    if (Math.random() < 0.1) {
-      throw new Error("Failed to fetch data - please try again later");
+  // Function to fetch application data from the patent office website
+  const fetchApplicationData = async (applicationNumber: string, captcha: string, cookie: string): Promise<ApplicationData> => {
+    try {
+      const formData = new FormData();
+      formData.append('applicationNumber', applicationNumber);
+      formData.append('captcha', captcha);
+
+      const response = await fetch('https:// patentscope.ipindia.gov.in/IndianPatentSearch/getApplicationData', {
+        method: 'POST',
+        headers: {
+          'Cookie': cookie,
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.errorMessage || 'Failed to fetch application data');
+      }
+
+      return {
+        "Application Number": applicationNumber,
+        "Applicant Name": data.applicantName || "",
+        "Application Type": data.applicationType || "",
+        "Date of Filing": data.dateOfFiling || "",
+        "Title of Invention": data.titleOfInvention || "",
+        "Field of Invention": data.fieldOfInvention || "",
+        "Email (As Per Record)": data.emailAsPerRecord || "",
+        "Additional Email (As Per Record)": data.additionalEmail || "",
+        "Email (Updated Online)": data.emailUpdatedOnline || "",
+        "PCT International Application Number": data.pctApplicationNumber || "",
+        "PCT International Filing Date": data.pctFilingDate || "",
+        "Priority Date": data.priorityDate || "",
+        "Request for Examination Date": data.requestForExaminationDate || "",
+        "Publication Date (U/S 11A)": data.publicationDate || "",
+        "Application Status": data.applicationStatus || ""
+      };
+    } catch (err) {
+      console.error(`Error fetching data for ${applicationNumber}:`, err);
+      throw new Error(`Failed to fetch data for application ${applicationNumber}: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-    
-    // Return mock data for demonstration
-    const statuses = ["Published", "Exam Report Issued", "Granted", "Pending"];
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    
-    return {
-      "Application Number": applicationNumber,
-      "Applicant Name": `Applicant ${applicationNumber}`,
-      "Application Type": Math.random() > 0.5 ? "Provisional" : "Complete",
-      "Date of Filing": `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/202${Math.floor(Math.random() * 4)}`,
-      "Title of Invention": `Invention Title for ${applicationNumber}`,
-      "Field of Invention": ["Engineering", "Biotechnology", "Software", "Mechanical", "Chemical"][Math.floor(Math.random() * 5)],
-      "Email (As Per Record)": `applicant${applicationNumber}@example.com`,
-      "Additional Email (As Per Record)": Math.random() > 0.7 ? `additional${applicationNumber}@example.com` : "",
-      "Email (Updated Online)": "",
-      "PCT International Application Number": Math.random() > 0.7 ? `PCT/IN/${applicationNumber}/2023` : "",
-      "PCT International Filing Date": Math.random() > 0.7 ? `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/2023` : "",
-      "Priority Date": Math.random() > 0.5 ? `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/2022` : "",
-      "Request for Examination Date": Math.random() > 0.3 ? `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/2023` : "",
-      "Publication Date (U/S 11A)": Math.random() > 0.4 ? `${Math.floor(Math.random() * 28) + 1}/${Math.floor(Math.random() * 12) + 1}/2023` : "",
-      "Application Status": status
-    };
   };
 
   const processApplications = async () => {
@@ -107,17 +143,18 @@ export const ApplicationStatusChecker: React.FC = () => {
         
         const appNumber = applicationNumbers[i];
         try {
-          // Fetch captcha
-          const captcha = await fetchCaptcha();
+          // Fetch captcha and cookie
+          const { captcha, cookie } = await fetchCaptcha();
           
           // Fetch application data
-          const data = await fetchApplicationData(appNumber);
+          const data = await fetchApplicationData(appNumber, captcha, cookie);
           results.push(data);
         } catch (err) {
           console.error(`Error processing ${appNumber}:`, err);
           results.push({
             "Application Number": appNumber,
-            error: true
+            error: true,
+            errorMessage: err instanceof Error ? err.message : "Unknown error occurred"
           });
         }
         

@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, FileText } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ApplicationData {
   "Application Number": string;
@@ -30,6 +31,7 @@ interface ApplicationData {
   "Publication Date (U/S 11A)"?: string;
   "Application Status"?: string;
   error?: boolean;
+  errorMessage?: string;
 }
 
 interface ResultsTableProps {
@@ -49,14 +51,33 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
         return "success";
       case "pending":
         return "secondary";
+      case "rejected":
+        return "destructive";
       default:
         return "secondary";
     }
   };
 
+  const getStatusIcon = (status?: string) => {
+    if (!status) return null;
+    
+    switch (status.toLowerCase()) {
+      case "published":
+        return <FileText className="h-4 w-4" />;
+      case "exam report issued":
+        return <AlertTriangle className="h-4 w-4" />;
+      case "granted":
+        return <CheckCircle className="h-4 w-4" />;
+      case "pending":
+        return <Clock className="h-4 w-4" />;
+      default:
+        return null;
+    }
+  };
+
   return (
     <ScrollArea className="border rounded-md w-full">
-      <Table className="min-w-[1000px]">
+      <Table className="min-w-[1200px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-[150px]">Application Number</TableHead>
@@ -91,19 +112,30 @@ export const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
               </TableCell>
               <TableCell>
                 {result["Application Status"] ? (
-                  <Badge variant={getStatusVariant(result["Application Status"])}>
-                    {result["Application Status"]}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(result["Application Status"])}
+                    <Badge variant={getStatusVariant(result["Application Status"])}>
+                      {result["Application Status"]}
+                    </Badge>
+                  </div>
                 ) : (
                   "-"
                 )}
               </TableCell>
               <TableCell className="text-center">
                 {result.error ? (
-                  <div className="flex items-center justify-center">
-                    <AlertTriangle className="h-5 w-5 text-destructive" />
-                    <span className="sr-only">Error occurred</span>
-                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <div className="flex items-center justify-center">
+                          <AlertTriangle className="h-5 w-5 text-destructive" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{result.errorMessage || "Error occurred while fetching data"}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 ) : (
                   <span className="text-muted-foreground">-</span>
                 )}
