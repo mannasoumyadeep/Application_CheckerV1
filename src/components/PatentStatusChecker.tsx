@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Download, Play, Square, FileText, AlertCircle, CheckCircle, Clock, Loader2 } from "lucide-react";
 import { saveAs } from "file-saver";
 import * as XLSX from 'xlsx';
+import { toast } from "sonner";
 
 interface ApplicationData {
   "Application Number": string;
@@ -60,6 +61,32 @@ export const PatentStatusChecker: React.FC = () => {
     });
   };
 
+  const processApplication = async (applicationNumber: string): Promise<ApplicationData> => {
+    try {
+      const response = await fetch('/api/process-application', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ applicationNumber }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      console.error(`Error processing application ${applicationNumber}:`, err);
+      return {
+        "Application Number": applicationNumber,
+        error: true,
+        errorMessage: err instanceof Error ? err.message : "Unknown error occurred"
+      };
+    }
+  };
+
   const processApplications = async () => {
     if (applicationNumbers.length === 0) return;
     
@@ -70,65 +97,43 @@ export const PatentStatusChecker: React.FC = () => {
     setCompleted(false);
     
     try {
-      // Simulate processing - this will be replaced with actual API call to serverless function
       const results: ApplicationData[] = [];
       const total = applicationNumbers.length;
       
+      // Process applications sequentially to avoid overwhelming the server
       for (let i = 0; i < total; i++) {
-        const appNumber = applicationNumbers[i];
+        if (!isProcessing) break; // Check if processing was stopped
         
-        try {
-          // This will be replaced with actual API call
-          // const response = await fetch('/api/process-application', {
-          //   method: 'POST',
-          //   headers: { 'Content-Type': 'application/json' },
-          //   body: JSON.stringify({ applicationNumber: appNumber })
-          // });
-          // const data = await response.json();
-          
-          // For now, simulate with mock data
-          await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-          
-          // Simulate random success/failure for demo
-          if (Math.random() > 0.2) {
-            const mockData: ApplicationData = {
-              "Application Number": appNumber,
-              "Applicant Name": `Applicant ${appNumber.slice(-4)}`,
-              "Application Type": "Patent",
-              "Date of Filing": "15/03/2023",
-              "Title of Invention": `Invention Title ${appNumber.slice(-4)}`,
-              "Field of Invention": "Technology",
-              "Application Status": ["Published", "Exam Report Issued", "Granted", "Pending"][Math.floor(Math.random() * 4)]
-            };
-            results.push(mockData);
-            setProcessingStats(prev => ({ ...prev, successful: prev.successful + 1 }));
-          } else {
-            results.push({
-              "Application Number": appNumber,
-              error: true,
-              errorMessage: "Failed to fetch application data"
-            });
-            setProcessingStats(prev => ({ ...prev, failed: prev.failed + 1 }));
-          }
-          
-        } catch (err) {
-          results.push({
-            "Application Number": appNumber,
-            error: true,
-            errorMessage: err instanceof Error ? err.message : "Unknown error occurred"
-          });
+        const appNumber = applicationNumbers[i];
+        toast.info(`Processing application ${appNumber}...`);
+        
+        const result = await processApplication(appNumber);
+        results.push(result);
+        
+        if (result.error) {
+          toast.error(`Failed to process ${appNumber}: ${result.errorMessage}`);
           setProcessingStats(prev => ({ ...prev, failed: prev.failed + 1 }));
+        } else {
+          toast.success(`Successfully processed ${appNumber}`);
+          setProcessingStats(prev => ({ ...prev, successful: prev.successful + 1 }));
         }
         
         const processed = i + 1;
         setProgress((processed / total) * 100);
         setProcessingStats(prev => ({ ...prev, processed }));
         setResults([...results]);
+        
+        // Add a small delay between requests to be respectful to the server
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
       setCompleted(true);
+      if (processingStats.successful > 0) {
+        toast.success(`Processing complete! ${processingStats.successful} applications processed successfully.`);
+      }
     } catch (err) {
       setError("An error occurred while processing applications. Please try again.");
+      toast.error("Processing failed. Please try again.");
       console.error(err);
     } finally {
       setIsProcessing(false);
@@ -138,6 +143,7 @@ export const PatentStatusChecker: React.FC = () => {
   const stopProcessing = () => {
     setIsProcessing(false);
     setError("Processing stopped by user");
+    toast.info("Processing stopped by user");
   };
 
   const exportToExcel = (data: ApplicationData[], filename: string) => {
@@ -147,6 +153,7 @@ export const PatentStatusChecker: React.FC = () => {
     const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
     const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
     saveAs(blob, filename);
+    toast.success(`Results exported to ${filename}`);
   };
 
   const exportResults = () => {
@@ -157,6 +164,8 @@ export const PatentStatusChecker: React.FC = () => {
     const errorResults = results.filter(result => result.error);
     if (errorResults.length > 0) {
       exportToExcel(errorResults, "patent_application_status_errors.xlsx");
+    } else {
+      toast.info("No errors to export");
     }
   };
 
