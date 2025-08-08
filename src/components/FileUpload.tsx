@@ -9,12 +9,13 @@ import { cn } from "@/lib/utils";
 import * as XLSX from 'xlsx';
 
 interface FileUploadProps {
-  onFileUpload: (data: any[]) => void;
+  onFileUpload: (data: string[]) => void;
   isProcessing: boolean;
 }
 
 export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isProcessing }) => {
   const [uploadError, setUploadError] = React.useState<string | null>(null);
+  const [dragActive, setDragActive] = React.useState(false);
 
   const validateApplicationNumber = (number: string): boolean => {
     // Indian patent application numbers are typically 11 digits
@@ -63,6 +64,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isProcessi
           return;
         }
         
+        if (applicationNumbers.length > 100) {
+          setUploadError('Maximum 100 application numbers allowed per file. Please split your file into smaller batches.');
+          return;
+        }
+        
         onFileUpload(applicationNumbers);
       } catch (err) {
         console.error('File processing error:', err);
@@ -71,6 +77,36 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isProcessi
     };
     reader.readAsArrayBuffer(file);
   }, [onFileUpload]);
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        setUploadError('Please upload a valid Excel file (.xlsx or .xls)');
+        return;
+      }
+      
+      // Create a synthetic event to reuse the same handler
+      const syntheticEvent = {
+        target: { files: [file] }
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+      handleFileUpload(syntheticEvent);
+    }
+  }, [handleFileUpload]);
 
   const downloadSampleFile = () => {
     // Create sample data
@@ -90,7 +126,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isProcessi
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sample Applications");
     
     // Export to file
-    XLSX.writeFile(workbook, "sample_application_numbers.xlsx");
+    XLSX.writeFile(workbook, "sample_patent_application_numbers.xlsx");
   };
 
   return (
@@ -101,7 +137,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isProcessi
           Upload Application Numbers
         </CardTitle>
         <CardDescription>
-          Upload an Excel file with patent application numbers in the first column
+          Upload an Excel file with patent application numbers in the first column (Max 100 per batch)
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -116,7 +152,17 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isProcessi
             </Alert>
           )}
           
-          <div className="border-2 border-dashed rounded-lg p-6 text-center">
+          <div 
+            className={cn(
+              "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
+              dragActive ? "border-primary bg-primary/5" : "border-gray-300",
+              isProcessing && "opacity-50 pointer-events-none"
+            )}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
             <Upload className="mx-auto h-10 w-10 text-gray-400 mb-3" />
             <div className="mt-2">
               <label htmlFor="file-upload">
@@ -138,7 +184,10 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isProcessi
                 </Button>
               </label>
               <p className="mt-2 text-sm text-gray-500">
-                Excel files only (.xlsx, .xls)
+                or drag and drop your Excel file here
+              </p>
+              <p className="text-xs text-gray-400">
+                Excel files only (.xlsx, .xls) • Max 100 applications per file
               </p>
             </div>
             
@@ -165,6 +214,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, isProcessi
                   <li>Include only one application number per row</li>
                   <li>Do not include headers in the file</li>
                   <li>Save your file as .xlsx or .xls format</li>
+                  <li>Maximum 100 application numbers per file</li>
                 </ul>
               </div>
             </div>
